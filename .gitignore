@@ -1,0 +1,15 @@
+# Dependencies (프로젝트는 no-build 이지만 실수 방지용)
+node_modules/
+package-lock.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# Temp
+*.tmp
+.cache/
+dist/

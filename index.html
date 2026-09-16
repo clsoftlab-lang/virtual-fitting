@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Copyright 2026 CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국)
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="의상 가상 피팅 — 신체정보 기반 규칙형 사이즈 추천과 아바타 미리보기 (데모)" />
+  <title>가상 피팅 룸 · Virtual Fitting</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%91%97%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">👗</span>
+        <div>
+          <h1>가상 피팅 룸</h1>
+          <p class="tagline">신체정보로 사이즈를 추천받고 아바타로 미리 입어보세요</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="demo-chip" title="규칙 기반 데모 모드">DEMO</span>
+        <button id="theme-toggle" class="icon-btn" type="button" aria-label="라이트/다크 전환">🌗</button>
+        <button id="reset-btn" class="icon-btn" type="button" aria-label="데이터 초기화">↺</button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-view="catalog" role="tab">카탈로그</button>
+      <button class="tab" data-view="compare" role="tab">비교 <span id="compare-count" class="pill">0</span></button>
+      <button class="tab" data-view="wishlist" role="tab">찜 <span id="wishlist-count" class="pill">0</span></button>
+    </nav>
+
+    <div class="layout">
+      <!-- 신체정보 + 아바타 -->
+      <aside class="profile-panel">
+        <form id="profile-form" autocomplete="off">
+          <h2>내 신체정보</h2>
+          <label class="field">
+            <span>프리셋</span>
+            <select id="sel-preset"><option value="">직접 입력</option></select>
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>키 (cm)</span>
+              <input id="inp-height" type="number" min="120" max="210" step="1" value="175" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span>몸무게 (kg)</span>
+              <input id="inp-weight" type="number" min="30" max="180" step="1" value="70" inputmode="numeric" />
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>성별</span>
+              <select id="sel-gender"></select>
+            </label>
+            <label class="field">
+              <span>체형</span>
+              <select id="sel-bodyType"></select>
+            </label>
+          </div>
+        </form>
+
+        <div class="avatar-card">
+          <div id="avatar-container" class="avatar-container" aria-label="신체 아바타 미리보기"></div>
+          <div id="body-summary" class="body-summary"></div>
+        </div>
+      </aside>
+
+      <!-- 뷰 영역 -->
+      <main class="content">
+        <!-- 카탈로그 -->
+        <section id="view-catalog" class="view is-active">
+          <div class="filters">
+            <input id="search" type="search" placeholder="상품/브랜드 검색…" aria-label="검색" />
+            <select id="filter-category" aria-label="카테고리 필터"></select>
+            <select id="filter-gender" aria-label="성별 필터"></select>
+            <select id="filter-size" aria-label="사이즈 필터"></select>
+            <label class="check"><input id="filter-fit" type="checkbox" /> 잘 맞는 것만</label>
+          </div>
+          <p id="catalog-count" class="result-count"></p>
+          <div id="catalog-grid" class="catalog-grid"></div>
+        </section>
+
+        <!-- 비교 -->
+        <section id="view-compare" class="view">
+          <h2>사이즈·핏 비교</h2>
+          <div id="compare-view" class="compare-view"></div>
+        </section>
+
+        <!-- 찜 -->
+        <section id="view-wishlist" class="view">
+          <h2>찜한 상품</h2>
+          <div id="wishlist-view" class="wishlist-view"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 상세 다이얼로그 -->
+    <div id="detail-backdrop" class="backdrop" hidden>
+      <div id="garment-detail" class="detail-dialog" role="dialog" aria-modal="true" aria-label="상품 상세"></div>
+    </div>
+
+    <footer class="app-footer">
+      <p><strong>데모 모드:</strong> 규칙 기반 사이즈 추정 + SVG 아바타입니다. 실제 3D/ML 신체 스캔이 아니며, 데이터는 모두 가상입니다. 계정·결제·개인정보(PII) 없음.</p>
+      <p>© 2026 CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국) · Apache-2.0 · Not an official Anthropic product.</p>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

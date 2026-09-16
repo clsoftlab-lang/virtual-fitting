@@ -1,0 +1,21 @@
+{
+  "genders": [
+    { "id": "men", "label": "남성" },
+    { "id": "women", "label": "여성" },
+    { "id": "unisex", "label": "선택 안 함" }
+  ],
+  "bodyTypes": [
+    { "id": "slim", "label": "마른형", "desc": "전체적으로 여유 있는 실루엣" },
+    { "id": "standard", "label": "표준형", "desc": "평균 비율" },
+    { "id": "athletic", "label": "운동/근육형", "desc": "어깨·가슴 발달, 허리 슬림" },
+    { "id": "curvy", "label": "굴곡형", "desc": "가슴·엉덩이 볼륨, 허리 곡선" },
+    { "id": "plus", "label": "통통형", "desc": "전체 둘레가 넉넉" }
+  ],
+  "presets": [
+    { "id": "p-men-std",   "label": "남성 표준 175/70",  "gender": "men",   "height": 175, "weight": 70, "bodyType": "standard" },
+    { "id": "p-men-tall",  "label": "남성 장신 185/82",  "gender": "men",   "height": 185, "weight": 82, "bodyType": "athletic" },
+    { "id": "p-women-std", "label": "여성 표준 162/54",  "gender": "women", "height": 162, "weight": 54, "bodyType": "standard" },
+    { "id": "p-women-curvy","label": "여성 굴곡 165/60", "gender": "women", "height": 165, "weight": 60, "bodyType": "curvy" }
+  ],
+  "note": "아바타 SVG 는 estimateBody() 로 추정한 신체 둘레(cm)에 비례해 스케일링됩니다. 실제 3D 스캔이 아닌 규칙 기반 근사입니다."
+}
