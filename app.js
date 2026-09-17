@@ -290,6 +290,44 @@ function renderCounts() {
   $('#compare-count').textContent = state.compare.length;
 }
 
+// ---------------------------------------------------------------------------
+// 자동 기능: 내 체형 맞춤 추천 착장 Top 3
+// 신체정보 로드/변경 시 fit-engine + askAI(DIGEST) 로 자동 생성한다.
+// 오프라인 mock 으로도 동작하며, 실서비스에서 실패해도 mock 으로 자동 폴백된다.
+// ---------------------------------------------------------------------------
+let digestTimer = null;
+let digestSeq = 0;
+
+function scheduleAutoDigest(delay = 500) {
+  clearTimeout(digestTimer);
+  digestTimer = setTimeout(renderAutoDigest, delay);
+}
+
+async function renderAutoDigest() {
+  const box = $('#auto-digest');
+  if (!box || !GARMENTS.length) return;
+  const seq = ++digestSeq; // 프로파일이 다시 바뀌면 이전 스트림 결과는 버린다.
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="digest-head"><span class="pill ai-pill">AI</span> 내 체형 맞춤 추천 착장 Top 3</div>
+    <p class="digest-body" id="auto-digest-body">추천을 생성하는 중…</p>`;
+  const out = $('#auto-digest-body');
+  try {
+    let first = true;
+    await askAI(
+      AI_TASKS.DIGEST,
+      { profile: state.profile, garments: GARMENTS },
+      { onToken: (t) => {
+        if (seq !== digestSeq) return;      // 최신 요청만 반영
+        if (first) { out.textContent = ''; first = false; }
+        out.textContent += t;
+      } },
+    );
+  } catch (err) {
+    if (seq === digestSeq) out.textContent = '추천을 불러오지 못했습니다.';
+  }
+}
+
 // ---- 상세 다이얼로그 -------------------------------------------------------
 let detailSelectedSize = null;
 
@@ -592,6 +630,7 @@ function onProfileChange() {
   saveState();
   renderAvatar();
   renderCatalog();
+  scheduleAutoDigest();
   if (state.view === 'compare') renderCompare();
   if (state.view === 'wishlist') renderWishlist();
 }
@@ -646,6 +685,7 @@ function bindEvents() {
     $('#search').value = ''; $('#filter-category').value = ''; $('#filter-gender').value = '';
     $('#filter-size').value = ''; $('#filter-fit').checked = false; $('#sel-preset').value = '';
     renderAvatar(); renderCatalog(); renderCounts(); switchView('catalog');
+    renderAutoDigest();
   });
 }
 
@@ -674,6 +714,7 @@ async function init() {
   renderCatalog();
   renderCounts();
   bindEvents();
+  renderAutoDigest(); // 로드 즉시 체형 맞춤 추천 Top 3 자동 생성
 }
 
 init();

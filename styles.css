@@ -276,3 +276,18 @@ table.size-table tr.is-rec td { background: var(--fit-good-bg); font-weight: 600
 }
 .ai-codi-result:empty, .ai-explain-out:empty { display: none; }
 .ai-explain-out { margin-top: 10px; }
+
+/* 자동 기능: 내 체형 맞춤 추천 착장 Top 3 (카탈로그 상단, 눈에 띄지 않게) */
+.auto-digest {
+  border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px;
+}
+.auto-digest[hidden] { display: none; }
+.digest-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px;
+}
+.digest-body {
+  margin: 0; white-space: pre-wrap; word-break: break-word;
+  font-size: 12.5px; line-height: 1.6; color: var(--text-dim);
+}

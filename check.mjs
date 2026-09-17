@@ -89,6 +89,7 @@ const required = [
   'id="catalog-grid"', 'id="filter-category"', 'id="compare-view"',
   'id="wishlist-view"', 'id="garment-detail"', 'id="theme-toggle"', 'id="reset-btn"',
   'id="view-ai"', 'data-view="ai"', 'id="ai-chat-form"', 'id="ai-chat-input"', 'id="ai-codi-situations"',
+  'id="auto-digest"',
   'type="module"', 'app.js', 'styles.css',
 ];
 for (const token of required) ok(`index.html 포함: ${token}`, html.includes(token));
@@ -187,6 +188,8 @@ const chat = await askAI(AI_TASKS.CHAT, { profile: aiProfile, message: '셔츠 �
 ok('mock CHAT 응답 생성', typeof chat === 'string' && chat.includes('추천'));
 const codi = await askAI(AI_TASKS.CODI, { profile: aiProfile, situation: 'office', garments });
 ok('mock CODI 응답 생성', typeof codi === 'string' && codi.length > 40);
+const digest = await askAI(AI_TASKS.DIGEST, { profile: aiProfile, garments });
+ok('mock DIGEST 응답 생성(Top 3)', typeof digest === 'string' && digest.includes('Top 3') && digest.includes('3)'));
 
 // ---------------------------------------------------------------------------
 console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

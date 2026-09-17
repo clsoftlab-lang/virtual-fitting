@@ -122,7 +122,7 @@ The app ships a **pluggable AI layer** with three features:
 
 To enable **real Claude**:
 
-1. Deploy `server/` (a thin proxy) with your `ANTHROPIC_API_KEY` (model `claude-opus-5`):
+1. Deploy `server/` (a thin proxy) with your `ANTHROPIC_API_KEY` (cost-first default model `claude-haiku-4-5`, raise via `AI_MODEL`):
    ```bash
    cd server && cp .env.example .env   # put your key in .env
    npm install && npm start            # http://localhost:8787
@@ -135,6 +135,19 @@ To enable **real Claude**:
 The browser only ever sends `{task, payload}` to the proxy; the proxy holds the key and streams Claude's text back.
 
 > **API keys are server-side only — never in the browser or the repo.** `ai/config.js` holds no key, `server/.env` is git-ignored, and `check.mjs` scans the repo for a committed key on every run.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+The AI layer is tuned to be **cheap, unmanned, and always-on**:
+
+- **Cost-first model.** Default `claude-haiku-4-5` (~**$1 / $5 per MTok** input/output). Raise quality with `AI_MODEL=claude-sonnet-5` or `claude-opus-5` when needed.
+- **Prompt caching.** The stable per-task system prompt is sent as a cached block (`cache_control: ephemeral`), so repeated calls read the cache and cost less.
+- **Output caps + guardrails.** Modest per-task `max_tokens` (~700), a per-IP rate limit (`AI_RATE_LIMIT_PER_MIN`, default 20/min), and a monthly token budget (`AI_MONTHLY_TOKEN_CAP`, default 2,000,000). On limit, the proxy returns `429 {"fallback":true}`.
+- **Rough cost estimate.** A typical grounded call ≈ ~1.5k input + ~0.4k output tokens ≈ **~$0.0035** on Haiku. So **~$3–4 per 1,000 requests** (less with cache hits). The default monthly cap is a hard ceiling well within a hobby budget.
+- **Free one-deploy (Cloudflare Workers).** `server/worker.js` + `server/wrangler.toml` run the same task routing / model / caching rules on Anthropic's REST API — free tier, no server to babysit. Deploy with `wrangler deploy` and `wrangler secret put ANTHROPIC_API_KEY`.
+- **Autonomous & never-breaks.** On body-profile load the app auto-generates **"내 체형 맞춤 추천 착장 Top 3"** from the fit engine via `askAI` — and if the endpoint is down / over budget / returns `429 {fallback:true}`, `ai/ai.js` **automatically falls back to the built-in mock**, so the app keeps working unmanned (offline too).
+
+> **API keys are server-side only — never in the browser or the repo.** The Worker reads the key only from the `ANTHROPIC_API_KEY` secret.
 
 ## Return-rate rationale
 

@@ -24,6 +24,7 @@ export const AI_TASKS = Object.freeze({
   CHAT:    'style-chat',    // (1) AI 스타일·핏 상담 챗봇
   EXPLAIN: 'fit-explain',   // (2) 핏 결과 자연어 설명
   CODI:    'outfit-coordi', // (3) 상황별 코디 추천
+  DIGEST:  'style-digest',  // (4) 체형 맞춤 추천 착장 Top 3 (자동 생성)
 });
 
 // 카테고리 한글 라벨(로컬 표기).
@@ -43,36 +44,56 @@ const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
 export async function askAI(task, payload = {}, { onToken } = {}) {
   // ── 데모 경로: 내장 MockProvider (결정론적) ──────────────────────────
   if (!AI_ENDPOINT) {
-    const text = mockProvider(task, payload);
-    if (onToken) await streamString(text, onToken);
-    return text;
+    return runMock(task, payload, onToken);
   }
 
   // ── 실서비스 경로: 백엔드 프록시로 POST 후 스트림 수신 ───────────────
-  const res = await fetch(AI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ task, payload }),
-  });
-  if (!res.ok) throw new Error(`AI 요청 실패: HTTP ${res.status}`);
-  if (!res.body || typeof res.body.getReader !== 'function') {
-    // 스트림 미지원 환경 폴백: 전체 텍스트 한 번에.
-    const full = await res.text();
-    if (onToken) onToken(full);
-    return full;
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
+  // 무인(無人) 원칙: 프록시 실패/429{fallback:true}/네트워크 오류 시
+  // 내장 mock 으로 자동 폴백하여 앱이 절대 멈추지 않는다.
+  let streamed = false;
   let full = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    if (!chunk) continue;
-    full += chunk;
-    if (onToken) onToken(chunk);
+  try {
+    const res = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ task, payload }),
+    });
+
+    // 429: 예산/레이트리밋 초과 → mock 폴백(무인).
+    if (res.status === 429) return runMock(task, payload, onToken);
+    if (!res.ok) throw new Error(`AI 요청 실패: HTTP ${res.status}`);
+
+    if (!res.body || typeof res.body.getReader !== 'function') {
+      // 스트림 미지원 환경 폴백: 전체 텍스트 한 번에.
+      full = await res.text();
+      if (onToken) onToken(full);
+      return full;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (!chunk) continue;
+      full += chunk;
+      streamed = true;
+      if (onToken) onToken(chunk);
+    }
+    return full;
+  } catch (err) {
+    // 이미 일부 토큰을 스트리밍했다면 중복 방지를 위해 받은 만큼만 반환.
+    if (streamed) return full;
+    // 아직 아무것도 못 받았으면 mock 으로 자동 폴백.
+    return runMock(task, payload, onToken);
   }
-  return full;
+}
+
+/** 내장 mock 실행 + (선택) 스트리밍 UX. */
+async function runMock(task, payload, onToken) {
+  const text = mockProvider(task, payload);
+  if (onToken) await streamString(text, onToken);
+  return text;
 }
 
 /** 문자열을 작은 조각으로 흘려보내 스트리밍 UX 를 흉내낸다(데모 전용). */
@@ -92,6 +113,7 @@ function mockProvider(task, payload) {
     case AI_TASKS.CHAT:    return mockChat(payload);
     case AI_TASKS.EXPLAIN: return mockExplain(payload);
     case AI_TASKS.CODI:    return mockCodi(payload);
+    case AI_TASKS.DIGEST:  return mockDigest(payload);
     default:               return `지원하지 않는 AI 요청입니다: ${String(task)}`;
   }
 }
@@ -186,6 +208,38 @@ function mockChat(payload) {
 
   const pref = fitPref ? `\n(요청하신 '${fitPref === 'loose' ? '넉넉한' : '타이트한'}' 핏을 우선 반영했어요.)` : '';
   return `${head}${pref}\n\n${lines.join('\n\n')}${tip}\n\n더 좁혀드릴까요? 예: "출근용", "넉넉한 하의", "데이트룩" 처럼 상황·핏을 알려주세요.`;
+}
+
+// ── (4) 체형 맞춤 추천 착장 Top 3 (자동 생성) ──────────────────────────
+// 신체정보 로드 시 fit-engine 으로 카탈로그 전체를 채점해 상위 3개를 요약한다.
+// 카테고리 다양성을 살짝 반영하되(같은 카테고리 최대 2개), 핏 점수를 우선한다.
+function mockDigest(payload) {
+  const { profile, garments = [] } = payload;
+  if (!profile || !garments.length) return '신체정보를 입력하면 체형 맞춤 추천을 보여드려요.';
+
+  const ranked = rankByFit(profile, garments);
+  if (!ranked.length) return '추천할 상품을 찾지 못했어요. 신체정보를 확인해 주세요.';
+
+  // 카테고리 편중 방지: 동일 카테고리는 최대 2개까지.
+  const catCount = {};
+  const picks = [];
+  for (const x of ranked) {
+    const c = x.g.category;
+    if ((catCount[c] || 0) >= 2) continue;
+    catCount[c] = (catCount[c] || 0) + 1;
+    picks.push(x);
+    if (picks.length >= 3) break;
+  }
+  while (picks.length < 3 && ranked[picks.length]) picks.push(ranked[picks.length]);
+
+  const lines = picks.map((x, i) => {
+    const { g, r } = x;
+    const ev = r.best;
+    return `${i + 1}) ${g.name} · ${g.brand} (${CATEGORY_KO[g.category]}) — 추천 ${r.recommended} · ${ev.badgeKo} (핏 ${ev.score}/100) · ${reasonFor(ev)} · ${won(g.price)}`;
+  });
+
+  return `${profileLine(profile)} 기준, 지금 체형에 가장 잘 맞는 착장 Top 3 예요.\n\n${lines.join('\n')}\n\n`
+    + '카탈로그에서 마음에 드는 상품을 눌러 상세 핏과 사이즈표를 확인해 보세요.';
 }
 
 // ── (2) 핏 결과 자연어 설명 ────────────────────────────────────────────

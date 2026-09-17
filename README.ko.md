@@ -125,7 +125,7 @@ GitHub Pages 에 그대로 배포 가능. Node 는 `check.mjs` 실행에만 사�
 
 **실제 Claude 연동** 방법:
 
-1. `server/`(얇은 프록시)를 `ANTHROPIC_API_KEY` 와 함께 배포합니다(모델 `claude-opus-5`):
+1. `server/`(얇은 프록시)를 `ANTHROPIC_API_KEY` 와 함께 배포합니다(비용 우선 기본 모델 `claude-haiku-4-5`, `AI_MODEL` 로 상향):
    ```bash
    cd server && cp .env.example .env   # .env 에 실제 키 입력
    npm install && npm start            # http://localhost:8787
@@ -138,6 +138,19 @@ GitHub Pages 에 그대로 배포 가능. Node 는 `check.mjs` 실행에만 사�
 브라우저는 프록시로 `{task, payload}` 만 보내고, 프록시가 키를 쥔 채 Claude 응답을 스트리밍으로 되돌려줍니다.
 
 > **API 키는 서버 전용입니다 — 브라우저나 저장소에 절대 넣지 마세요.** `ai/config.js` 에는 키가 없고, `server/.env` 는 git 에서 제외되며, `check.mjs` 는 매 실행마다 커밋된 키를 스캔합니다.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+AI 레이어는 **저비용 · 무인 · 상시 동작**에 맞춰 조정되어 있습니다.
+
+- **비용 우선 모델.** 기본 `claude-haiku-4-5` (약 **$1 / $5 per MTok** 입력/출력). 품질이 필요하면 `AI_MODEL=claude-sonnet-5` 또는 `claude-opus-5` 로 상향.
+- **프롬프트 캐싱.** 태스크별 안정적인 시스템 프롬프트를 캐시 블록(`cache_control: ephemeral`)으로 전송해, 반복 호출은 캐시를 읽어 비용이 낮아집니다.
+- **출력 상한 + 가드레일.** 태스크별 modest `max_tokens`(~700), IP당 레이트리밋(`AI_RATE_LIMIT_PER_MIN`, 기본 20/분), 월 토큰 예산(`AI_MONTHLY_TOKEN_CAP`, 기본 2,000,000). 한도 초과 시 프록시가 `429 {"fallback":true}` 반환.
+- **대략 비용.** 그라운딩 1회 ≈ 입력 ~1.5k + 출력 ~0.4k 토큰 ≈ Haiku 기준 **~$0.0035**. 즉 **1,000 요청당 ~$3–4**(캐시 적중 시 더 저렴). 기본 월 상한은 취미 예산 안에 드는 하드 실링입니다.
+- **무료 원클릭 배포(Cloudflare Workers).** `server/worker.js` + `server/wrangler.toml` 가 동일한 태스크 라우팅/모델/캐싱 규칙으로 Anthropic REST 를 호출합니다 — 무료 티어, 관리 서버 없음. `wrangler deploy` + `wrangler secret put ANTHROPIC_API_KEY`.
+- **무인 · 절대 안 멈춤.** 신체정보 로드 시 앱이 fit-engine + `askAI` 로 **"내 체형 맞춤 추천 착장 Top 3"** 를 자동 생성합니다. 엔드포인트가 죽거나·예산 초과·`429 {fallback:true}` 면 `ai/ai.js` 가 **내장 mock 으로 자동 폴백**하여, 오프라인에서도 앱이 계속 동작합니다(무인).
+
+> **API 키는 서버 전용입니다 — 브라우저나 저장소에 절대 넣지 마세요.** Worker 는 `ANTHROPIC_API_KEY` 시크릿에서만 키를 읽습니다.
 
 ## 반품률 절감 근거
 
