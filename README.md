@@ -88,7 +88,11 @@ app.js                # UI: state, avatar SVG, catalog, filters, detail, compare
 fit-engine.js         # the sizing math (importable in Node + browser)
 data/garments.json    # 34 fictional garments with cm size charts
 data/body-models.json # genders, body types, avatar presets
-check.mjs             # CI checks + fit-engine unit tests
+ai/config.js          # AI_ENDPOINT ("" = built-in mock; else backend proxy URL)
+ai/ai.js              # askAI(task, payload) — mock (fit-engine grounded) or streamed proxy
+server/index.mjs      # backend proxy → Anthropic Claude (key server-side only)
+server/               # package.json, .env.example, README.md
+check.mjs             # CI checks + fit-engine unit tests + AI-layer checks
 .github/workflows/ci.yml
 ```
 
@@ -105,6 +109,32 @@ check.mjs             # CI checks + fit-engine unit tests
 ## Tech
 
 Vanilla HTML + CSS + ES-module JavaScript. No framework, no bundler, relative paths only — deployable as-is to GitHub Pages. Node is used only to run `check.mjs`.
+
+## 🤖 AI 기능 (API 연동)
+
+The app ships a **pluggable AI layer** with three features:
+
+1. **AI 스타일·핏 상담 챗봇** — from your body metrics + preferences, it recommends garments and sizes using the fit engine (grounded on real per-region ease and fit scores).
+2. **핏 결과 자연어 설명** — narrates the recommended size and per-region ease for any garment ("chest +14.5cm just-right, waist tight → size up").
+3. **상황별 코디 추천** — situation-based outfit suggestions (office / date / active / weekend / formal), pairing top+bottom (or dress)+outer.
+
+**The demo works out of the box using a built-in, deterministic Korean mock** (`ai/ai.js`) that reuses the app's garment data and `fit-engine.js` — no key, no network, no build.
+
+To enable **real Claude**:
+
+1. Deploy `server/` (a thin proxy) with your `ANTHROPIC_API_KEY` (model `claude-opus-5`):
+   ```bash
+   cd server && cp .env.example .env   # put your key in .env
+   npm install && npm start            # http://localhost:8787
+   ```
+2. Point the front end at it — set `AI_ENDPOINT` in `ai/config.js`:
+   ```js
+   export const AI_ENDPOINT = "http://localhost:8787/api/ai"; // or your deployed URL
+   ```
+
+The browser only ever sends `{task, payload}` to the proxy; the proxy holds the key and streams Claude's text back.
+
+> **API keys are server-side only — never in the browser or the repo.** `ai/config.js` holds no key, `server/.env` is git-ignored, and `check.mjs` scans the repo for a committed key on every run.
 
 ## Return-rate rationale
 

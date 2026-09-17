@@ -90,7 +90,11 @@ app.js                # UI: 상태·아바타 SVG·카탈로그·필터·상세�
 fit-engine.js         # 사이즈 수식 (Node/브라우저 공용)
 data/garments.json    # 가상 의류 34종 + cm 사이즈표
 data/body-models.json # 성별·체형·아바타 프리셋
-check.mjs             # CI 검증 + 엔진 단위 테스트
+ai/config.js          # AI_ENDPOINT ("" = 내장 mock, 값 있으면 백엔드 프록시 URL)
+ai/ai.js              # askAI(task, payload) — mock(핏엔진 그라운딩) 또는 스트리밍 프록시
+server/index.mjs      # 백엔드 프록시 → Anthropic Claude (키는 서버 전용)
+server/               # package.json, .env.example, README.md
+check.mjs             # CI 검증 + 엔진 단위 테스트 + AI 레이어 검증
 .github/workflows/ci.yml
 ```
 
@@ -108,6 +112,32 @@ check.mjs             # CI 검증 + 엔진 단위 테스트
 
 순수 HTML + CSS + ES 모듈 JavaScript. 프레임워크·번들러 없음, 상대경로만 사용 —
 GitHub Pages 에 그대로 배포 가능. Node 는 `check.mjs` 실행에만 사용.
+
+## 🤖 AI 기능 (API 연동)
+
+앱에는 **플러그블 AI 레이어**가 포함되어 세 가지 기능을 제공합니다.
+
+1. **AI 스타일·핏 상담 챗봇** — 신체정보와 취향을 입력하면 핏 엔진 계산(부위별 여유·핏 점수)을 근거로 상품과 사이즈를 추천합니다.
+2. **핏 결과 자연어 설명** — 추천 사이즈와 부위별 여유를 자연스러운 문장으로 설명합니다("가슴 +14.5cm 적당, 허리 타이트 → 한 치수 업").
+3. **상황별 코디 추천** — 출근/데이트/운동/주말/포멀 상황별로 상·하의(또는 원피스)+아우터 코디를 제안합니다.
+
+**데모는 별도 설정 없이 브라우저 내장 결정론적 한글 mock**(`ai/ai.js`)으로 바로 동작합니다. mock 은 앱의 카탈로그 데이터와 `fit-engine.js` 를 그대로 재사용하며, 키·네트워크·빌드가 필요 없습니다.
+
+**실제 Claude 연동** 방법:
+
+1. `server/`(얇은 프록시)를 `ANTHROPIC_API_KEY` 와 함께 배포합니다(모델 `claude-opus-5`):
+   ```bash
+   cd server && cp .env.example .env   # .env 에 실제 키 입력
+   npm install && npm start            # http://localhost:8787
+   ```
+2. `ai/config.js` 의 `AI_ENDPOINT` 를 그 주소로 설정합니다:
+   ```js
+   export const AI_ENDPOINT = "http://localhost:8787/api/ai"; // 또는 배포 도메인
+   ```
+
+브라우저는 프록시로 `{task, payload}` 만 보내고, 프록시가 키를 쥔 채 Claude 응답을 스트리밍으로 되돌려줍니다.
+
+> **API 키는 서버 전용입니다 — 브라우저나 저장소에 절대 넣지 마세요.** `ai/config.js` 에는 키가 없고, `server/.env` 는 git 에서 제외되며, `check.mjs` 는 매 실행마다 커밋된 키를 스캔합니다.
 
 ## 반품률 절감 근거
 

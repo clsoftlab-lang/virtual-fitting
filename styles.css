@@ -238,3 +238,41 @@ table.size-table tr.is-rec td { background: var(--fit-good-bg); font-weight: 600
 .region-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .region-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; padding: 6px 8px; background: var(--surface-2); border-radius: 8px; }
 .region-list .rl-ease { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* AI 스타일리스트 */
+.ai-pill { background: var(--brand); color: var(--brand-ink); font-weight: 700; letter-spacing: .04em; }
+.tab.is-active .ai-pill { background: rgba(255,255,255,.28); }
+.ai-note {
+  font-size: 12px; color: var(--text-dim); background: var(--surface-2);
+  border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; margin: 0 0 16px;
+}
+.ai-block {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.ai-block h2 { margin: 0 0 4px; font-size: 16px; }
+.ai-hint { margin: 0 0 12px; font-size: 12px; color: var(--text-dim); }
+.ai-chat-log {
+  display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto;
+  padding: 4px; margin-bottom: 10px;
+}
+.ai-msg {
+  padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word; max-width: 92%;
+}
+.ai-msg-user { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px; }
+.ai-msg-ai { align-self: flex-start; background: var(--surface-2); color: var(--text); border-bottom-left-radius: 4px; }
+.ai-chat-form { display: flex; gap: 8px; }
+.ai-chat-form input {
+  flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--text); font-size: 14px;
+}
+.ai-chat-form input:focus { outline: 2px solid var(--brand); border-color: var(--brand); }
+.ai-situations { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ai-sit-btn.is-active { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.ai-codi-result, .ai-explain-out {
+  white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6;
+  background: var(--surface-2); border-radius: 10px; padding: 12px; color: var(--text);
+}
+.ai-codi-result:empty, .ai-explain-out:empty { display: none; }
+.ai-explain-out { margin-top: 10px; }

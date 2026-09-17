@@ -6,6 +6,8 @@
 //   2) 모든 JS 를 `node --check` 로 구문 검사
 //   3) index.html 필수 요소 존재 확인
 //   4) fit-engine 단위 테스트 (알려진 입력 → 기대 추천 사이즈/핏 배지)
+//   5) AI 레이어: ai/·server/ node --check, AI_ENDPOINT 기본 빈 값,
+//      커밋된 실제 API 키 부재, mock 세 태스크 응답 생성
 // 실패 시 프로세스 종료코드 1.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -16,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 import {
   estimateBody, recommendSize, evaluateSize, classifyEase, idealWeight,
 } from './fit-engine.js';
+import { AI_ENDPOINT } from './ai/config.js';
+import { askAI, AI_TASKS } from './ai/ai.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 let pass = 0, fail = 0;
@@ -84,6 +88,7 @@ const required = [
   'id="sel-gender"', 'id="sel-bodyType"', 'id="avatar-container"',
   'id="catalog-grid"', 'id="filter-category"', 'id="compare-view"',
   'id="wishlist-view"', 'id="garment-detail"', 'id="theme-toggle"', 'id="reset-btn"',
+  'id="view-ai"', 'data-view="ai"', 'id="ai-chat-form"', 'id="ai-chat-input"', 'id="ai-codi-situations"',
   'type="module"', 'app.js', 'styles.css',
 ];
 for (const token of required) ok(`index.html 포함: ${token}`, html.includes(token));
@@ -144,6 +149,44 @@ for (const g of garments) {
   if (!Object.keys(g.sizes).includes(r.recommended)) { recValid = false; break; }
 }
 ok('전 상품 추천 사이즈가 유효 키', recValid);
+
+// ---------------------------------------------------------------------------
+console.log('\n[5] AI 레이어');
+
+// 5-1 AI_ENDPOINT 기본값은 빈 문자열(브라우저 mock 모드, 키 미노출)
+eq('AI_ENDPOINT 기본값 빈 문자열', AI_ENDPOINT, '');
+
+// 5-2 ai/ 및 server/ 하위 모든 JS 를 명시적으로 node --check
+const rel = (f) => f.replace(ROOT, '').replace(/\\/g, '/').replace(/^\//, '');
+const aiFiles = files.filter((f) => /\.(m?js)$/.test(f) && /^(ai|server)\//.test(rel(f)));
+ok('ai/·server/ JS 파일 3개 이상', aiFiles.length >= 3, `현재 ${aiFiles.length}`);
+for (const f of aiFiles) {
+  try {
+    execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
+    ok(`--check ${rel(f)}`, true);
+  } catch (err) {
+    ok(`--check ${rel(f)}`, false, String(err.stderr || err).slice(0, 200));
+  }
+}
+
+// 5-3 커밋된 실제 API 키 부재 — 진짜 키 형식만 매칭(README 의 "sk-ant…" 언급은 오탐 아님)
+const KEY_RE = new RegExp("sk-" + "ant-[A-Za-z0-9_-]{20,}");
+let leaked = null;
+for (const f of files) {
+  let content;
+  try { content = readFileSync(f, 'utf8'); } catch { continue; }
+  if (KEY_RE.test(content)) { leaked = rel(f); break; }
+}
+ok('커밋된 실제 API 키 없음', leaked === null, leaked ? `발견: ${leaked}` : '');
+
+// 5-4 mock 세 태스크가 한글 응답을 결정론적으로 생성(핏 엔진 그라운딩)
+const aiProfile = { height: 175, weight: 70, gender: 'men', bodyType: 'standard' };
+const exp = await askAI(AI_TASKS.EXPLAIN, { profile: aiProfile, garment: byId('top-tee-001'), size: 'M' });
+ok('mock EXPLAIN 응답 생성', typeof exp === 'string' && exp.length > 40 && exp.includes('여유'));
+const chat = await askAI(AI_TASKS.CHAT, { profile: aiProfile, message: '셔츠 추천해줘', garments });
+ok('mock CHAT 응답 생성', typeof chat === 'string' && chat.includes('추천'));
+const codi = await askAI(AI_TASKS.CODI, { profile: aiProfile, situation: 'office', garments });
+ok('mock CODI 응답 생성', typeof codi === 'string' && codi.length > 40);
 
 // ---------------------------------------------------------------------------
 console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

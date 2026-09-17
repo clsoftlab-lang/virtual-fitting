@@ -2,6 +2,11 @@
 node_modules/
 package-lock.json
 
+# Secrets — API 키는 절대 커밋 금지 (server/.env)
+.env
+*.env
+!*.env.example
+
 # OS / editor
 .DS_Store
 Thumbs.db

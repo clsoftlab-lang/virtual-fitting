@@ -8,6 +8,8 @@ import {
   estimateBody, recommendSize, evaluateSize,
   REGION_LABELS, FIT_BADGE_KO, CATEGORY_REGIONS,
 } from './fit-engine.js';
+import { askAI, AI_TASKS, situationList } from './ai/ai.js';
+import { AI_ENDPOINT } from './ai/config.js';
 
 // ---------------------------------------------------------------------------
 // 상태 & 저장소
@@ -365,7 +367,9 @@ function renderDetail(g, r) {
         <div class="btn-row">
           <button class="btn ${inWish ? 'secondary' : ''}" id="detail-wish">${inWish ? '찜 해제' : '♥ 찜하기'}</button>
           <button class="btn secondary" id="detail-compare" ${inCompare ? 'disabled' : ''}>${inCompare ? '비교함에 있음' : '비교 담기'}</button>
+          <button class="btn secondary" id="detail-ai-explain">🤖 AI 핏 설명</button>
         </div>
+        <div id="detail-ai-out" class="ai-explain-out" hidden></div>
       </div>
     </div>
     <h3 style="margin:18px 0 8px;font-size:14px">사이즈표 (cm) · 아래 숫자는 내 치수 대비 여유</h3>
@@ -379,6 +383,101 @@ function renderDetail(g, r) {
   });
   $('#detail-wish').onclick = () => { toggleWish(g.id); renderDetail(g, r); };
   $('#detail-compare').onclick = () => { addCompare(g.id); renderDetail(g, r); };
+  $('#detail-ai-explain').onclick = async () => {
+    const out = $('#detail-ai-out');
+    const btn = $('#detail-ai-explain');
+    out.hidden = false;
+    out.textContent = 'AI가 핏을 설명하는 중…';
+    btn.disabled = true;
+    try {
+      out.textContent = '';
+      await askAI(
+        AI_TASKS.EXPLAIN,
+        { profile: state.profile, garment: g, size: detailSelectedSize },
+        { onToken: (t) => { out.textContent += t; } },
+      );
+    } catch (err) {
+      out.textContent = 'AI 설명을 불러오지 못했습니다: ' + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// AI 스타일리스트 뷰 (챗봇 + 상황별 코디)
+// ---------------------------------------------------------------------------
+let aiViewReady = false;
+
+function aiProviderNote() {
+  return AI_ENDPOINT
+    ? '실서비스 모드: 백엔드 프록시를 통해 Claude 가 응답합니다. (API 키는 서버 전용)'
+    : '데모 모드: 브라우저 내장 mock 이 핏 엔진 계산을 근거로 응답합니다. 실제 Claude 연동은 server/ 배포 후 ai/config.js 의 AI_ENDPOINT 설정.';
+}
+
+function renderAiView() {
+  $('#ai-provider-note').textContent = aiProviderNote();
+  if (aiViewReady) return;
+  aiViewReady = true;
+
+  // 상황 버튼
+  const box = $('#ai-codi-situations');
+  box.innerHTML = situationList()
+    .map((s) => `<button class="btn secondary ai-sit-btn" data-sit="${s.id}">${esc(s.label)}</button>`).join('');
+  $$('[data-sit]', box).forEach((b) => { b.onclick = () => runCodi(b.dataset.sit, b); });
+
+  // 챗봇
+  appendChat('ai', '안녕하세요! 신체정보 기준으로 옷을 추천해 드릴게요. 무엇을 찾으세요? 예: "출근용 셔츠", "넉넉한 하의", "데이트룩".');
+  $('#ai-chat-form').addEventListener('submit', (e) => { e.preventDefault(); sendChat(); });
+}
+
+function appendChat(who, text) {
+  const log = $('#ai-chat-log');
+  const row = document.createElement('div');
+  row.className = `ai-msg ai-msg-${who}`;
+  row.textContent = text;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+  return row;
+}
+
+async function sendChat() {
+  const input = $('#ai-chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendChat('user', msg);
+  const out = appendChat('ai', '생각 중…');
+  $('#ai-chat-send').disabled = true;
+  try {
+    out.textContent = '';
+    await askAI(
+      AI_TASKS.CHAT,
+      { profile: state.profile, message: msg, garments: GARMENTS },
+      { onToken: (t) => { out.textContent += t; $('#ai-chat-log').scrollTop = $('#ai-chat-log').scrollHeight; } },
+    );
+  } catch (err) {
+    out.textContent = '응답 실패: ' + err.message;
+  } finally {
+    $('#ai-chat-send').disabled = false;
+  }
+}
+
+async function runCodi(situation, btn) {
+  const out = $('#ai-codi-result');
+  out.hidden = false;
+  out.textContent = 'AI가 코디를 구성하는 중…';
+  $$('.ai-sit-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
+  try {
+    out.textContent = '';
+    await askAI(
+      AI_TASKS.CODI,
+      { profile: state.profile, situation, garments: GARMENTS },
+      { onToken: (t) => { out.textContent += t; } },
+    );
+  } catch (err) {
+    out.textContent = '코디 추천 실패: ' + err.message;
+  }
 }
 
 // ---- 비교 / 찜 -------------------------------------------------------------
@@ -475,6 +574,7 @@ function switchView(view) {
   $$('.view').forEach((v) => v.classList.toggle('is-active', v.id === `view-${view}`));
   if (view === 'compare') renderCompare();
   if (view === 'wishlist') renderWishlist();
+  if (view === 'ai') renderAiView();
 }
 
 function applyTheme() {
